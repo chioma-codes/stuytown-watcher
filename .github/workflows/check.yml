@@ -1,0 +1,39 @@
+name: Check StuyTown Apartments Page
+
+on:
+  schedule:
+    # Every 10 minutes, 7:00am-9:50am ET (11:00-13:50 UTC)
+    - cron: "*/10 11-13 * * *"
+    # 10:00am, 10:10am, and 10:15am ET (14:00, 14:10, 14:15 UTC)
+    - cron: "0,10,15 14 * * *"
+  workflow_dispatch: {}  # lets you trigger a manual run from the Actions tab
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Run checker
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python check_apartments.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "apartment-watcher-bot"
+          git config user.email "actions@github.com"
+          git add last_seen.txt last_seen_full_text.txt
+          git diff --quiet --cached || git commit -m "Update saved state [skip ci]"
+          git push
